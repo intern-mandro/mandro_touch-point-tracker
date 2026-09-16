@@ -6,6 +6,8 @@ import com.mandro.touchtracker.core.AppResult
 import com.mandro.touchtracker.data.db.TouchPointDao
 import com.mandro.touchtracker.data.db.entity.toDomain
 import com.mandro.touchtracker.di.IoDispatcher
+import com.mandro.touchtracker.data.local.SettingsRepository
+import com.mandro.touchtracker.model.CoordinateUnit
 import com.mandro.touchtracker.model.ExportFormat
 import com.mandro.touchtracker.model.TouchSession
 import com.mandro.touchtracker.data.export.SessionExporter
@@ -13,7 +15,9 @@ import com.mandro.touchtracker.data.repository.TouchSessionRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.io.BufferedWriter
 import java.io.IOException
 import java.io.OutputStreamWriter
@@ -21,7 +25,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 import kotlin.coroutines.coroutineContext
 
@@ -30,10 +33,8 @@ class SessionExporterImpl @Inject constructor(
     private val sessionRepository: TouchSessionRepository,
     private val pointDao: TouchPointDao,
     private val contentResolver: ContentResolver,
-    // Provider 로 받는다: JSON writer 는 배열 구분자 때문에 내보내기 1회분 상태를 들고 있어
-    // 인스턴스를 재사용하면 동시 내보내기에서 깨진다.
-    private val csvWriterProvider: Provider<CsvSessionWriter>,
-    private val jsonWriterProvider: Provider<JsonSessionWriter>,
+    private val settingsRepository: SettingsRepository,
+    private val json: Json,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) : SessionExporter {
 
@@ -54,8 +55,12 @@ class SessionExporterImpl @Inject constructor(
         val session = sessionRepository.getSession(sessionId)
             ?: return@withContext AppResult.Failure("세션을 찾을 수 없습니다 (id=$sessionId)")
 
+        // CSV 의 좌표 단위는 "지금 설정값" 을 따른다. 내보내기를 누른 시점에 한 번
+        // 읽어서 파일 하나가 통째로 같은 단위를 쓰게 한다.
+        val coordinateUnit = settingsRepository.settings.first().coordinateUnit
+
         try {
-            val count = writeSession(session, format, target)
+            val count = writeSession(session, format, target, coordinateUnit)
             AppResult.Success("${session.name} · ${count}점")
         } catch (e: CancellationException) {
             // 취소는 실패가 아니다. 구조적 동시성을 깨지 않으려면 반드시 다시 던진다.
@@ -68,10 +73,17 @@ class SessionExporterImpl @Inject constructor(
     }
 
     /** @return 실제로 쓴 점 개수 */
-    private suspend fun writeSession(session: TouchSession, format: ExportFormat, target: Uri): Int {
+    private suspend fun writeSession(
+        session: TouchSession,
+        format: ExportFormat,
+        target: Uri,
+        coordinateUnit: CoordinateUnit,
+    ): Int {
+        // 내보내기 1회분마다 새로 만든다. JSON writer 는 배열 구분자 때문에 상태를
+        // 들고 있어서, 인스턴스를 재사용하면 동시 내보내기에서 깨진다.
         val writer = when (format) {
-            ExportFormat.CSV -> csvWriterProvider.get()
-            ExportFormat.JSON -> jsonWriterProvider.get()
+            ExportFormat.CSV -> CsvSessionWriter(coordinateUnit)
+            ExportFormat.JSON -> JsonSessionWriter(json)
         }
 
         // "wt" = 기존 내용을 지우고 쓰기. "w" 만 주면 기기에 따라 앞부분만 덮어써서
@@ -95,8 +107,6 @@ class SessionExporterImpl @Inject constructor(
         }
         return written
     }
-
-    /** 파일 이름에 못 쓰는 문자를 걷어낸다. 빈 문자열이 되면 기본값으로. */
     private fun String.sanitizeForFileName(): String =
         trim().replace(INVALID_FILE_NAME_CHARS, "-")
             .take(MAX_SLUG_LENGTH)
