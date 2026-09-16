@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.mandro.touchtracker.model.CaptureSettings
 import com.mandro.touchtracker.model.CoordinateUnit
@@ -15,11 +14,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/**
- * 캡처 설정 영속화. Preferences DataStore 를 쓴다 — 항목이 몇 개 안 되고
- * 구조가 평평해서 직렬화 스키마를 둘 이유가 없다.
- */
 @Singleton
 class SettingsStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
@@ -38,14 +32,14 @@ class SettingsStore @Inject constructor(
             prefs[KEY_KEEP_SCREEN_ON] = next.keepScreenOn
             prefs[KEY_RECORD_MOVE] = next.recordMoveEvents
             prefs[KEY_IGNORE_SYNTHETIC] = next.ignoreSyntheticInput
-            prefs[KEY_LIVE_BUFFER] = next.liveBufferSize.coerceAtLeast(CaptureSettings.RECENT_POINT_LIMIT)
+            // liveBufferSize 는 일부러 저장하지 않는다 — 아래 toSettings 설명 참고.
         }
     }
 
     private fun Preferences.toSettings(): CaptureSettings {
         val default = CaptureSettings.DEFAULT
         return CaptureSettings(
-            gridSpacingMm = this[KEY_GRID_SPACING_MM] ?: default.gridSpacingMm,
+            gridSpacingMm = CaptureSettings.FIXED_GRID_SPACING_MM,
             // 저장된 이름이 사라진 enum 상수일 수 있다 (앱 다운그레이드 등) → 기본값으로 떨어뜨린다.
             coordinateUnit = this[KEY_COORDINATE_UNIT]
                 ?.let { name -> CoordinateUnit.entries.firstOrNull { it.name == name } }
@@ -54,7 +48,10 @@ class SettingsStore @Inject constructor(
             keepScreenOn = this[KEY_KEEP_SCREEN_ON] ?: default.keepScreenOn,
             recordMoveEvents = this[KEY_RECORD_MOVE] ?: default.recordMoveEvents,
             ignoreSyntheticInput = this[KEY_IGNORE_SYNTHETIC] ?: default.ignoreSyntheticInput,
-            liveBufferSize = this[KEY_LIVE_BUFFER] ?: default.liveBufferSize,
+            // 사용자가 바꿀 수 있는 항목이 아니라 메모리 상한 상수다. 저장해 두면
+            // 상수를 고쳐도 예전 값이 살아남아 덮어쓴다 — 실제로 이미 깔린 기기에
+            // 9 가 박혀 있어서 측정이 9 점만 저장되는 원인이 됐다. 항상 상수를 쓴다.
+            liveBufferSize = default.liveBufferSize,
         )
     }
 
@@ -65,6 +62,5 @@ class SettingsStore @Inject constructor(
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val KEY_RECORD_MOVE = booleanPreferencesKey("record_move_events")
         val KEY_IGNORE_SYNTHETIC = booleanPreferencesKey("ignore_synthetic_input")
-        val KEY_LIVE_BUFFER = intPreferencesKey("live_buffer_size")
     }
 }
