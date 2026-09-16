@@ -20,3 +20,6 @@ local.properties
 # JVM crash / replay logs
 replay_pid*.log
 hs_err_pid*.log
+
+# 아이콘 생성 스크립트가 만드는 확인용 미리보기 (소스 아님)
+scripts/icon_preview_*.png
