@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      권한은 일부러 비워 둔다.
+      · 터치 좌표는 이 앱 자신의 화면에서 MotionEvent 로 직접 받는다 → 권한 불필요
+      · 내보내기는 SAF(ACTION_CREATE_DOCUMENT / OPEN_DOCUMENT_TREE)로 처리 →
+        WRITE_EXTERNAL_STORAGE 불필요
+    -->
+
+    <!-- 로봇 팔이 정렬을 마칠 때까지 화면이 꺼지면 안 된다. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- 정전식 터치가 필수. 실험 장비 태블릿/폰 외에는 설치 의미가 없다. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+
+    <application
+        android:name=".TouchTrackerApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.TouchTracker"
+        tools:targetApi="31">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TouchTracker"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:resizeableActivity="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
+            <!--
+              방향 고정 · 멀티윈도우 금지는 의도된 것이다.
+              화면이 회전하거나 크기가 바뀌면 px 좌표계 원점과 스케일이 바뀌어
+              같은 세션 안의 측정값끼리 비교가 불가능해진다.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

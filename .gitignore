@@ -1,0 +1,22 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.kotlin/
+.DS_Store
+/build
+app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# 설계 문서
+/docs
+
+# 앱이 내보낸 실험 데이터
+/exports
+
+# JVM crash / replay logs
+replay_pid*.log
+hs_err_pid*.log

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- 측정 DB 는 기기 고유 좌표계에 묶여 있어 다른 기기로 복원하면 의미가 없다. -->
+    <exclude domain="database" path="touch_tracker.db" />
+</full-backup-content>

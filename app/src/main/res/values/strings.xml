@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 런처·작업 전환기에 뜨는 이름. -->
+    <string name="app_name">Tourch Tracker</string>
+
+    <!-- 메인 탭 2개 -->
+    <string name="tab_data">데이터</string>
+    <string name="tab_grid">모눈종이</string>
+
+    <!-- 캡처 -->
+    <string name="capture_idle">대기 중 — 화면을 터치하면 기록됩니다</string>
+    <string name="capture_recording">기록 중</string>
+    <string name="capture_start">기록 시작</string>
+    <string name="capture_stop">기록 정지</string>
+    <string name="capture_clear">화면 지우기</string>
+    <string name="capture_recent_title">최근 %1$d개 터치</string>
+    <string name="capture_no_points">아직 기록된 터치가 없습니다</string>
+
+    <!-- 좌표 표시 -->
+    <string name="label_index">#</string>
+    <string name="label_x">X</string>
+    <string name="label_y">Y</string>
+    <string name="label_pressure">압력</string>
+    <string name="label_size">접촉</string>
+    <string name="label_time">시각</string>
+    <string name="unit_px">px</string>
+    <string name="unit_mm">mm</string>
+    <string name="unit_ms">ms</string>
+
+    <!-- 세션 -->
+    <string name="sessions_title">세션 목록</string>
+    <string name="session_detail_title">세션 상세</string>
+    <string name="session_new">새 세션</string>
+    <string name="session_delete">세션 삭제</string>
+    <string name="session_empty">저장된 세션이 없습니다</string>
+
+    <!-- 내보내기 -->
+    <string name="export_csv">CSV 내보내기</string>
+    <string name="export_json">JSON 내보내기</string>
+    <string name="export_done">내보내기 완료: %1$s</string>
+    <string name="export_failed">내보내기 실패: %1$s</string>
+
+    <!-- 설정 -->
+    <string name="settings_title">설정</string>
+    <string name="settings_grid_spacing">모눈 간격</string>
+    <string name="settings_coordinate_unit">좌표 단위</string>
+    <string name="settings_show_trail">이동 경로 표시</string>
+    <string name="settings_keep_screen_on">화면 항상 켜기</string>
+    <string name="settings_record_move">MOVE 이벤트도 기록</string>
+    <string name="settings_ignore_synthetic">합성(비물리) 입력 무시</string>
+</resources>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tourch Tracker 런처 아이콘 전경 — 십자선 3쌍 + 마커 3개.
+
+  이 앱이 하는 일(터치 한 점을 좌표로 집어내기)을 그대로 그린 것이다.
+  색은 앱 테마와 같은 의미색: LiveGreen / MarkerRed / 청사진 블루.
+
+  ── 좌표 규칙 ──────────────────────────────────────────────────
+  · 선은 108 전체를 가로지른다. 바깥쪽은 런처 마스크에 잘리는데, 잘린 모양이
+    오히려 "격자가 아이콘 밖으로 이어진다"는 인상을 준다 — 의도된 것이다.
+  · 마커 원은 반드시 세이프존(중심 54,54 / 반지름 33) 안에 있어야 한다.
+    지금 셋 다 중심에서 31.8 이내라 어떤 마스크에서도 잘리지 않는다.
+  · 배경(ic_launcher_background)의 번짐 좌표와 한 쌍이다. 하나를 옮기면 둘 다 옮긴다.
+
+  monochrome(테마 아이콘)으로도 이 파일을 그대로 쓴다. 알파만 남으면
+  격자 + 점 실루엣이 되어 단색에서도 뜻이 통한다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ── 십자선: 초록 (39,39) ───────────────────────────── -->
+    <path
+        android:pathData="M0,39 L108,39"
+        android:strokeColor="#91EDB9"
+        android:strokeWidth="3.6" />
+    <path
+        android:pathData="M39,0 L39,108"
+        android:strokeColor="#91EDB9"
+        android:strokeWidth="3.6" />
+
+    <!-- ── 십자선: 빨강 (70,56) ───────────────────────────── -->
+    <path
+        android:pathData="M0,56 L108,56"
+        android:strokeColor="#FFA89C"
+        android:strokeWidth="3.6" />
+    <path
+        android:pathData="M70,0 L70,108"
+        android:strokeColor="#FFA89C"
+        android:strokeWidth="3.6" />
+
+    <!-- ── 십자선: 파랑 (49,73) ───────────────────────────── -->
+    <path
+        android:pathData="M0,73 L108,73"
+        android:strokeColor="#91C3FC"
+        android:strokeWidth="3.6" />
+    <path
+        android:pathData="M49,0 L49,108"
+        android:strokeColor="#91C3FC"
+        android:strokeWidth="3.6" />
+
+    <!-- ── 마커: 선명한 단색 원 + 같은 계열 연한 색 테두리 ────── -->
+    <!-- 초록 마커 (39, 39) -->
+    <path
+        android:pathData="M29.5,39 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0z"
+        android:fillColor="#2ECC71"
+        android:strokeColor="#91EDB9"
+        android:strokeWidth="1.8" />
+
+    <!-- 빨강 마커 (70, 56) -->
+    <path
+        android:pathData="M60.5,56 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0z"
+        android:fillColor="#EE412D"
+        android:strokeColor="#FFA89C"
+        android:strokeWidth="1.8" />
+
+    <!-- 파랑 마커 (49, 73) -->
+    <path
+        android:pathData="M39.5,73 a9.5,9.5 0 1,0 19,0 a9.5,9.5 0 1,0 -19,0z"
+        android:fillColor="#3287F0"
+        android:strokeColor="#91C3FC"
+        android:strokeWidth="1.8" />
+</vector>
