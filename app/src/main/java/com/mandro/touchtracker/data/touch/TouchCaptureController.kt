@@ -86,8 +86,19 @@ class TouchCaptureController @Inject constructor(
     /** 터치 디스패치 스레드에서만 건드린다 — 동기화 불필요. */
     private var sequence = 0
 
+    /**
+     * 경과 시간의 기준점들.
+     *
+     * 자동 세션이 생기면서 저장 루프(다른 코루틴)도 이 값들을 쓰게 됐다.
+     * 터치 디스패치 스레드가 읽는 값이라 @Volatile 이 필요하다.
+     */
+    @Volatile
     private var sessionStartUptimeMs = 0L
+
+    @Volatile
     private var sessionElapsedOffsetMs = 0L
+
+    @Volatile
     private var firstLiveTouchUptimeMs = 0L
 
     /** 슬라이드 제스처(스와이프/스크롤/드래그) 판정 임계치 (기기 scaledTouchSlop 기반, 최소 24px) */
@@ -432,6 +443,14 @@ class TouchCaptureController @Inject constructor(
         val device = sessionDeviceProfile
         val name = autoSessionName()
         val startedAt = clock.epochMs()
+        // 경과 시간의 0 점을 이번 회차의 첫 터치에 맞춘다.
+        //
+        // 이걸 빼먹으면 sessionStartUptimeMs 가 0 인 채로 남아서, 두 번째 점부터
+        // "부팅 후 경과 시간"(수십만 초)이 그대로 찍힌다. 첫 점만 멀쩡하고 그 뒤가
+        // 전부 틀리는 형태라 눈에 잘 안 띈다.
+        sessionStartUptimeMs = firstLiveTouchUptimeMs.takeIf { it != 0L } ?: clock.uptimeMs()
+        sessionElapsedOffsetMs = 0L
+
         val id = repository.startSession(name, note = "", device = device)
         _activeSession.value = TouchSession(
             id = id,

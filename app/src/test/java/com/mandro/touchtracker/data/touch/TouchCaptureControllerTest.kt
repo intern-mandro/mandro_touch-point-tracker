@@ -308,6 +308,25 @@ class TouchCaptureControllerTest {
 
 
     @Test
+    fun `elapsed time is measured from the first touch not from device boot`() = runTest {
+        // 자동 세션은 첫 터치 이후에 만들어진다. 그때 경과 시간의 0 점을 안 잡아 주면
+        // 두 번째 점부터 "부팅 후 경과 시간"(수십만 초)이 그대로 찍혔다.
+        controller.isCaptureEnabled = true
+
+        tapAt(x = 100f, y = 200f)
+        tapAt(x = 140f, y = 260f)
+        tapAt(x = 180f, y = 320f)
+
+        val elapsed = controller.livePoints.value.map { it.elapsedMs }
+        assertThat(elapsed.first()).isEqualTo(0L)
+        // 테스트 안에서 세 번 두드리는 데 10 분이 걸릴 리 없다. 부팅 시각이
+        // 새어 들어오면 이 값이 수억 ms 가 된다.
+        assertThat(elapsed.max()).isLessThan(10 * 60 * 1000L)
+        assertThat(elapsed).isInOrder()
+    }
+
+
+    @Test
     fun `touching without the record button does not count as explicit recording`() = runTest {
         // 자동으로 열린 세션은 저장은 되지만 "녹화 중" 이 아니다 —
         // 상단바는 이 값으로 표시등을 띄울지 초기화 버튼을 둘지 가른다.
