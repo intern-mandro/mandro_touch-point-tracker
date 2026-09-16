@@ -10,6 +10,7 @@ import com.mandro.touchtracker.model.TouchPoint
 import com.mandro.touchtracker.model.TouchSession
 import com.mandro.touchtracker.data.export.SessionExporter
 import com.mandro.touchtracker.data.repository.TouchSessionRepository
+import com.mandro.touchtracker.data.touch.TouchCaptureController
 import com.mandro.touchtracker.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ class SessionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     repository: TouchSessionRepository,
     private val exporter: SessionExporter,
+    private val captureController: TouchCaptureController,
 ) : ViewModel() {
 
     private val sessionId: Long =
@@ -65,6 +67,17 @@ class SessionDetailViewModel @Inject constructor(
                 is AppResult.Failure -> result.message
             }
             exporting.value = false
+        }
+    }
+
+    fun resumeSession(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            val success = captureController.resumeSession(sessionId)
+            if (success) {
+                onComplete()
+            } else {
+                messages.value = "세션을 불러오지 못했습니다"
+            }
         }
     }
 

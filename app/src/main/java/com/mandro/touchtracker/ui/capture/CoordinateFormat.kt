@@ -5,6 +5,8 @@ import com.mandro.touchtracker.model.CoordinateUnit
 import com.mandro.touchtracker.model.TouchPoint
 import java.util.Locale
 
+import kotlin.math.roundToInt
+
 /**
  * 좌표를 사람이 읽는 문자열로. 화면 어디서든 같은 자릿수로 보이게 여기 한 곳에 모은다.
  *
@@ -35,6 +37,22 @@ object CoordinateFormat {
         CoordinateUnit.PX -> "px"
         CoordinateUnit.MM -> if (metrics.hasPhysicalDpi) "mm" else "mm?"
         CoordinateUnit.NORMALIZED -> ""
+    }
+
+    /**
+     * 화면 기준 해상도 및 치수 안내 문자열.
+     * 사용자가 측정 좌표를 볼 때 전체 화면의 기준 크기가 몇 바이 몇인지 바로 확인할 수 있게 한다.
+     */
+    fun referenceLabel(unit: CoordinateUnit, metrics: ScreenMetrics): String = when (unit) {
+        CoordinateUnit.PX -> "${metrics.widthPx} × ${metrics.heightPx} px"
+        CoordinateUnit.MM -> if (metrics.hasPhysicalDpi) {
+            val widthMm = metrics.toMmX(metrics.widthPx.toFloat()).roundToInt()
+            val heightMm = metrics.toMmY(metrics.heightPx.toFloat()).roundToInt()
+            "${widthMm} × ${heightMm} mm"
+        } else {
+            "${metrics.widthPx} × ${metrics.heightPx} px (DPI 미지원)"
+        }
+        CoordinateUnit.NORMALIZED -> "0.00 ~ 1.00"
     }
 
     fun pressure(value: Float): String = format(value, PRESSURE_DECIMALS)

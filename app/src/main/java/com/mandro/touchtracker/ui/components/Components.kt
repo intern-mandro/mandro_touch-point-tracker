@@ -1,6 +1,7 @@
 package com.mandro.touchtracker.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +36,11 @@ fun SectionCard(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(SECTION_CORNER_DP.dp),
-        tonalElevation = 1.dp,
+        tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+        ),
     ) {
         Column(Modifier.padding(SECTION_PADDING_DP.dp)) {
             Row(
@@ -91,3 +99,24 @@ fun HintText(text: String, modifier: Modifier = Modifier, color: Color? = null) 
 private const val SECTION_CORNER_DP = 12
 private const val SECTION_PADDING_DP = 14
 private const val DOT_SIZE_DP = 8
+
+/**
+ * 흰 바탕 스낵바. Material 기본 스낵바는 보랏빛 어두운 회색이라 이 앱의
+ * 종이색 화면 위에서 튄다. 흰 배경끼리 묻히지 않도록 테두리를 준다.
+ */
+@Composable
+fun TrackerSnackbarHost(hostState: SnackbarHostState, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(SNACKBAR_CORNER_DP.dp)
+    SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+        Snackbar(
+            snackbarData = data,
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline, shape),
+            shape = shape,
+            containerColor = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+            actionColor = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+private const val SNACKBAR_CORNER_DP = 10

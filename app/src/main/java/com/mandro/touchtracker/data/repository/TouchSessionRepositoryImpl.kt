@@ -71,6 +71,14 @@ class TouchSessionRepositoryImpl @Inject constructor(
         sessionDao.markEnded(sessionId, clock.epochMs())
     }
 
+    override suspend fun reopenSession(sessionId: Long) = withContext(io) {
+        sessionDao.reopen(sessionId)
+    }
+
+    override suspend fun getPoints(sessionId: Long): List<TouchPoint> = withContext(io) {
+        pointDao.getBySession(sessionId).map { it.toDomain() }
+    }
+
     override suspend fun appendPoints(points: List<TouchPoint>) = withContext(io) {
         if (points.isEmpty()) return@withContext
         pointDao.insertAll(points.map { it.toEntity() })

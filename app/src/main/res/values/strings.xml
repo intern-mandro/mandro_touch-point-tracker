@@ -1,23 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 런처·작업 전환기에 뜨는 이름. -->
-    <string name="app_name">Tourch Tracker</string>
+    <string name="app_name">Touch Point Tracker</string>
 
     <!-- 메인 탭 2개 -->
-    <string name="tab_data">데이터</string>
-    <string name="tab_grid">모눈종이</string>
+    <string name="tab_data">Log Table</string>
+    <string name="tab_grid">Canvas</string>
 
     <!-- 캡처 -->
-    <string name="capture_idle">대기 중 — 화면을 터치하면 기록됩니다</string>
+    <string name="capture_idle">대기 중</string>
     <string name="capture_recording">기록 중</string>
-    <string name="capture_start">기록 시작</string>
-    <string name="capture_stop">기록 정지</string>
-    <string name="capture_clear">화면 지우기</string>
+    <string name="capture_start">녹화 시작</string>
+    <string name="capture_stop">녹화 정지</string>
+    <string name="capture_clear">초기화</string>
     <string name="capture_recent_title">최근 %1$d개 터치</string>
-    <string name="capture_no_points">아직 기록된 터치가 없습니다</string>
+    <string name="capture_no_points">아직 기록된 데이터가 없습니다</string>
+    <string name="capture_go_record">데이터 기록하러 가기</string>
+
+    <!-- 초기화 확인 다이얼로그 -->
+    <string name="clear_dialog_title">세션 기록</string>
+    <string name="clear_dialog_message">방금 측정된 터치 데이터를 세션으로 기록하시겠습니까?</string>
+    <string name="clear_dialog_save_and_clear">저장 후 초기화</string>
+    <string name="clear_dialog_save">저장</string>
+    <string name="clear_dialog_clear_only">저장 안 함</string>
+    <string name="common_cancel">취소</string>
+
+    <!-- 기록 중에 화면을 떠나려 할 때 -->
+    <string name="leave_dialog_title">기록 중인 세션</string>
+    <string name="leave_dialog_message">이동하면 측정이 중단됩니다. 방금 측정한 세션을 저장할까요?</string>
+    <string name="leave_dialog_save">저장</string>
+    <string name="leave_dialog_discard">저장 안 함</string>
 
     <!-- 좌표 표시 -->
-    <string name="label_index">#</string>
+    <string name="label_index">index</string>
     <string name="label_x">X</string>
     <string name="label_y">Y</string>
     <string name="label_pressure">압력</string>
@@ -33,6 +48,9 @@
     <string name="session_new">새 세션</string>
     <string name="session_delete">세션 삭제</string>
     <string name="session_empty">저장된 세션이 없습니다</string>
+    <string name="session_resume">현재 세션에서 이어서 기록하기</string>
+    <string name="session_resume_short">이어서 기록</string>
+    <string name="session_resume_hint">이 세션의 마지막 터치 상태를 불러와 캡처 화면에서 기록을 재개합니다</string>
 
     <!-- 내보내기 -->
     <string name="export_csv">CSV 내보내기</string>
@@ -42,6 +60,20 @@
 
     <!-- 설정 -->
     <string name="settings_title">설정</string>
+    <!-- 캔버스 위로 내려오는 메뉴 -->
+    <string name="menu_open">메뉴</string>
+    <string name="menu_unit_title">측정 단위</string>
+
+    <!-- 녹화 시작 확인 -->
+    <string name="record_dialog_title">녹화 시작</string>
+    <string name="record_dialog_message">녹화를 시작하시겠습니까?</string>
+    <string name="record_dialog_confirm">시작</string>
+
+    <!-- 녹화 정지 확인 — 이번 세션을 남길지 버릴지 -->
+    <string name="stop_dialog_title">녹화 정지</string>
+    <string name="stop_dialog_message">이번 세션을 저장하시겠습니까?</string>
+    <string name="stop_dialog_save">저장</string>
+    <string name="stop_dialog_discard">폐기</string>
     <string name="settings_grid_spacing">모눈 간격</string>
     <string name="settings_coordinate_unit">좌표 단위</string>
     <string name="settings_show_trail">이동 경로 표시</string>

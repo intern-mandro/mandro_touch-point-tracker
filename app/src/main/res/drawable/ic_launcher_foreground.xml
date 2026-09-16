@@ -26,31 +26,31 @@
     <path
         android:pathData="M0,39 L108,39"
         android:strokeColor="#91EDB9"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
     <path
         android:pathData="M39,0 L39,108"
         android:strokeColor="#91EDB9"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
 
     <!-- ── 십자선: 빨강 (70,56) ───────────────────────────── -->
     <path
         android:pathData="M0,56 L108,56"
         android:strokeColor="#FFA89C"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
     <path
         android:pathData="M70,0 L70,108"
         android:strokeColor="#FFA89C"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
 
     <!-- ── 십자선: 파랑 (49,73) ───────────────────────────── -->
     <path
         android:pathData="M0,73 L108,73"
         android:strokeColor="#91C3FC"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
     <path
         android:pathData="M49,0 L49,108"
         android:strokeColor="#91C3FC"
-        android:strokeWidth="3.6" />
+        android:strokeWidth="1.8" />
 
     <!-- ── 마커: 선명한 단색 원 + 같은 계열 연한 색 테두리 ────── -->
     <!-- 초록 마커 (39, 39) -->

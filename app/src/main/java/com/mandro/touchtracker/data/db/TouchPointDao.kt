@@ -21,6 +21,9 @@ interface TouchPointDao {
     )
     suspend fun getPage(sessionId: Long, limit: Int, offset: Int): List<TouchPointEntity>
 
+    @Query("SELECT * FROM touch_points WHERE session_id = :sessionId ORDER BY sequence ASC")
+    suspend fun getBySession(sessionId: Long): List<TouchPointEntity>
+
     @Insert
     suspend fun insertAll(points: List<TouchPointEntity>)
 

@@ -2,6 +2,7 @@ package com.mandro.touchtracker.ui.sessions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,10 +65,17 @@ fun SessionListScreen(
         },
     ) { innerPadding ->
         if (state.isLoaded && state.sessions.isEmpty()) {
-            HintText(
-                text = stringResource(R.string.session_empty),
-                modifier = Modifier.padding(innerPadding).padding(24.dp),
-            )
+            // 다른 탭의 빈 상태와 같은 위치·같은 서체로 둔다. 목록이 비었다는 사실은
+            // 화면 가운데에서 읽히는 게 맞다.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                HintText(text = stringResource(R.string.session_empty))
+            }
             return@Scaffold
         }
 

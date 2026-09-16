@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 시스템 바용. 실제 앱 색은 ui/theme/Color.kt 가 단일 출처다. -->
-    <color name="paper">#FFF7F3EA</color>
+    <color name="paper">#FFFFFFFF</color>
     <color name="ink">#FF16212B</color>
 </resources>

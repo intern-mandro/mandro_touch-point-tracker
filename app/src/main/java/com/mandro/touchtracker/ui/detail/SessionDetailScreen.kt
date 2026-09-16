@@ -3,20 +3,31 @@ package com.mandro.touchtracker.ui.detail
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -31,10 +42,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mandro.touchtracker.R
 import com.mandro.touchtracker.model.ExportFormat
+import com.mandro.touchtracker.model.TouchSession
 import com.mandro.touchtracker.ui.components.HintText
 import com.mandro.touchtracker.ui.components.SectionCard
+import com.mandro.touchtracker.ui.components.TrackerSnackbarHost
 import com.mandro.touchtracker.ui.theme.NumericSmallTextStyle
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * 세션 하나의 요약과 내보내기.
@@ -49,6 +63,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SessionDetailScreen(
     onBack: () -> Unit,
+    onResumeSession: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SessionDetailViewModel = hiltViewModel(),
 ) {
@@ -56,15 +71,9 @@ fun SessionDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // 형식마다 런처를 따로 둔다. CreateDocument 의 MIME 타입은 런처를 만들 때 굳으므로,
-    // 하나를 돌려 쓰면 방금 바꾼 형식이 아니라 직전 형식으로 파일이 만들어진다.
     val createCsv = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(ExportFormat.CSV.mimeType),
     ) { uri -> uri?.let { viewModel.export(ExportFormat.CSV, it) } }
-
-    val createJson = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(ExportFormat.JSON.mimeType),
-    ) { uri -> uri?.let { viewModel.export(ExportFormat.JSON, it) } }
 
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
@@ -72,19 +81,16 @@ fun SessionDetailScreen(
         viewModel.consumeMessage()
     }
 
-    fun startExport(format: ExportFormat) {
+    fun startExport() {
         scope.launch {
-            val fileName = viewModel.suggestFileName(format)
-            when (format) {
-                ExportFormat.CSV -> createCsv.launch(fileName)
-                ExportFormat.JSON -> createJson.launch(fileName)
-            }
+            val fileName = viewModel.suggestFileName(ExportFormat.CSV)
+            createCsv.launch(fileName)
         }
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { TrackerSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(state.session?.name ?: stringResource(R.string.session_detail_title)) },
@@ -109,36 +115,31 @@ fun SessionDetailScreen(
             }
 
             SectionCard(title = "측정 조건", modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    DetailLine("기기", "${session.device.manufacturer} ${session.device.model}")
-                    DetailLine("화면", "${session.metrics.widthPx} × ${session.metrics.heightPx} px")
-                    DetailLine(
-                        label = "DPI",
-                        value = if (session.metrics.hasPhysicalDpi) {
-                            "x ${session.metrics.xDpi} / y ${session.metrics.yDpi}"
-                        } else {
-                            "신뢰 불가 — mm 환산 사용 금지"
-                        },
-                    )
-                    DetailLine("기록된 점", "${state.points.size}")
-                }
+                MeasurementConditions(session = session, pointCount = state.points.size)
             }
+            // 동작은 버튼 두 개가 전부다. 설명 문구와 카드 껍데기를 걷어내
+            // 화면에서 읽을 것은 위의 측정 조건만 남긴다.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.resumeSession(onResumeSession) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.session_resume_short))
+                }
 
-            SectionCard(title = "내보내기", modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { startExport(ExportFormat.CSV) },
-                        enabled = !state.isExporting,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.export_csv)) }
-
-                    Button(
-                        onClick = { startExport(ExportFormat.JSON) },
-                        enabled = !state.isExporting,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.export_json)) }
-
-                    HintText("CSV 는 분석용(px·mm·정규화 좌표 모두 포함), JSON 은 기기 메타까지 담습니다")
+                Button(
+                    onClick = { startExport() },
+                    enabled = !state.isExporting,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.export_csv))
                 }
             }
         }
@@ -146,13 +147,99 @@ fun SessionDetailScreen(
 }
 
 @Composable
-private fun DetailLine(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(text = value, style = NumericSmallTextStyle, color = MaterialTheme.colorScheme.onSurface)
+private fun MeasurementConditions(session: TouchSession, pointCount: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ConditionSummary("기록된 점", "$pointCount", "points", Modifier.weight(1f))
+            ConditionSummary(
+                "화면 해상도",
+                "${session.metrics.widthPx} × ${session.metrics.heightPx}",
+                "px",
+                Modifier.weight(1f),
+            )
+        }
+
+        if (session.note.isNotBlank()) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text("실험 조건 메모", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(
+                        text = session.note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
+            }
+        }
+
+        Column {
+            ConditionRow("기기", "${session.device.manufacturer} ${session.device.model}")
+            ConditionDivider()
+            ConditionRow("Android", "API ${session.device.androidSdk}")
+            ConditionDivider()
+            ConditionRow(
+                "물리 DPI",
+                if (session.metrics.hasPhysicalDpi) {
+                    "X ${formatDpi(session.metrics.xDpi)}  ·  Y ${formatDpi(session.metrics.yDpi)}"
+                } else {
+                    "확인되지 않음"
+                },
+            )
+        }
+
+        if (!session.metrics.hasPhysicalDpi) {
+            Text(
+                text = "물리 DPI를 확인할 수 없어 mm 단위 환산을 사용할 수 없습니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
+
+@Composable
+private fun ConditionSummary(
+    label: String,
+    value: String,
+    unit: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ConditionRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(16.dp))
+        Text(value, style = NumericSmallTextStyle, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ConditionDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
+}
+
+private fun formatDpi(value: Float): String = String.format(Locale.US, "%.1f", value)

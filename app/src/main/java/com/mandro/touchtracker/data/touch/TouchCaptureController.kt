@@ -1,6 +1,8 @@
 package com.mandro.touchtracker.data.touch
 
+import android.content.Context
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import com.mandro.touchtracker.core.time.Clock
 import com.mandro.touchtracker.di.ApplicationScope
 import com.mandro.touchtracker.model.CaptureSettings
@@ -10,6 +12,7 @@ import com.mandro.touchtracker.model.TouchPoint
 import com.mandro.touchtracker.model.TouchSession
 import com.mandro.touchtracker.data.local.SettingsRepository
 import com.mandro.touchtracker.data.repository.TouchSessionRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -19,25 +22,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/**
- * 앱 전체에서 하나뿐인 터치 수집기.
- *
- * ### 왜 Composable 안이 아니라 여기인가
- * 캡처는 **Activity 의 `dispatchTouchEvent` 에서** 들어온다 ([MainActivity] 참고).
- * 이유:
- * - 어떤 탭이 떠 있든 로봇이 화면을 누르면 기록돼야 한다. 캡처를 특정 화면의
- *   `pointerInput` 에 매달면 탭을 옮기는 순간 측정이 끊긴다.
- * - 관찰만 하고 이벤트를 소비하지 않으므로, 같은 터치가 그대로 Compose 로 흘러가
- *   탭 전환·버튼도 평소처럼 동작한다.
- *
- * ### 쓰기 경로
- * 점은 곧바로 DB 에 넣지 않는다. MOVE 는 초당 수백 건이라 건건이 insert 하면
- * 터치 디스패치 스레드가 막힌다. [pending] 채널에 던지고 [drainPending] 이
- * 묶음으로 저장한다. UI 는 DB 를 기다리지 않고 [livePoints] 를 즉시 본다.
- */
+import kotlin.math.hypot
 @Singleton
 class TouchCaptureController @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: TouchSessionRepository,
     settingsRepository: SettingsRepository,
     private val clock: Clock,
@@ -46,8 +34,19 @@ class TouchCaptureController @Inject constructor(
 
     private val _activeSession = MutableStateFlow<TouchSession?>(null)
 
-    /** null 이면 기록 중이 아니다. 화면 터치는 무시된다. */
+    // null 인 경우 화면은 기록되지 않음 (무시함)
     val activeSession: StateFlow<TouchSession?> = _activeSession.asStateFlow()
+
+    private val _isExplicitRecording = MutableStateFlow(false)
+
+    /**
+     * 사람이 녹화 버튼으로 시작한 세션인가.
+     *
+     * 세션은 두 가지 경로로 열린다 — 녹화 버튼을 누르거나, 그냥 화면을 눌러서
+     * 자동으로. 저장되는 내용은 똑같지만 화면에 보여 줄 것은 다르다.
+     * "녹화 중" 표시등은 사람이 직접 켰을 때만 뜬다.
+     */
+    val isExplicitRecording: StateFlow<Boolean> = _isExplicitRecording.asStateFlow()
 
     private val _livePoints = MutableStateFlow<List<TouchPoint>>(emptyList())
 
@@ -68,28 +67,62 @@ class TouchCaptureController @Inject constructor(
     @Volatile
     private var settings: CaptureSettings = CaptureSettings.DEFAULT
 
+    /** 모눈종이 탭이 화면에 떠 있을 때만 true 가 된다. 데이터 탭 등에서는 터치가 기록되지 않는다. */
+    @Volatile
+    var isCaptureEnabled: Boolean = false
+
+    /** 모눈종이 캔버스의 윈도우 내 영역. 상단 탑바나 탭 버튼 터치 등을 배제한다. */
+    @Volatile
+    var captureBoundsInWindow: android.graphics.RectF? = null
+
+    /**
+     * 자동 세션을 열 때 쓸 좌표계. 화면이 실제 캔버스 크기를 잰 뒤 넣어 준다.
+     *
+     * Activity 를 직접 들고 있으면 싱글턴이 화면을 붙잡아 새므로, 값 타입만 받는다.
+     */
+    @Volatile
+    var sessionDeviceProfile: DeviceProfile = DeviceProfile.PREVIEW
+
     /** 터치 디스패치 스레드에서만 건드린다 — 동기화 불필요. */
     private var sequence = 0
+
     private var sessionStartUptimeMs = 0L
+    private var sessionElapsedOffsetMs = 0L
+    private var firstLiveTouchUptimeMs = 0L
+
+    /** 슬라이드 제스처(스와이프/스크롤/드래그) 판정 임계치 (기기 scaledTouchSlop 기반, 최소 24px) */
+    private val slideThresholdPx: Float by lazy {
+        runCatching {
+            ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+        }.getOrDefault(24f).coerceAtLeast(24f)
+    }
+
+    /** 슬라이드 제스처 판별을 위한 진행 중 터치 임시 보관 */
+    private data class PendingTouch(
+        val downSample: TouchSample,
+        var maxDistancePx: Float = 0f,
+        var hasSlid: Boolean = false,
+    )
+
+    private val pendingTouches = mutableMapOf<Int, PendingTouch>()
 
     init {
         scope.launch { settingsRepository.settings.collect { settings = it } }
         scope.launch { drainPending() }
     }
 
-    /**
-     * 새 세션을 열고 기록을 시작한다.
-     *
-     * @param device 지금 화면의 좌표계. 세션이 끝날 때까지 바뀌지 않는다고 가정한다
-     *               (그래서 MainActivity 가 방향 고정이다).
-     */
+    // 새 세션 열고 기록하기
     suspend fun startSession(name: String, note: String, device: DeviceProfile) {
         stopSession()
 
         val startedAt = clock.epochMs()
         val id = repository.startSession(name, note, device)
+        _isExplicitRecording.value = true
         sequence = 0
         sessionStartUptimeMs = clock.uptimeMs()
+        sessionElapsedOffsetMs = 0L
+        firstLiveTouchUptimeMs = 0L
+        pendingTouches.clear()
         _livePoints.value = emptyList()
         _activeSession.value = TouchSession(
             id = id,
@@ -100,53 +133,253 @@ class TouchCaptureController @Inject constructor(
         )
     }
 
-    /** 기록을 끝낸다. 열린 세션이 없으면 아무 일도 하지 않는다. */
+    /**
+     * 기록을 끝내고 화면을 비운다. 열린 세션이 없으면 아무것도 하지 않는다.
+     *
+     * 화면을 같이 비우는 게 핵심이다. 확정된 측정은 **세션 데이터로만** 남아야 한다 —
+     * 캔버스에 남겨 두면 다음 회차의 점과 섞여서, 보이는 점이 어느 세션 것인지
+     * 구분할 수 없게 된다.
+     */
     suspend fun stopSession() {
         val session = _activeSession.value ?: return
         _activeSession.value = null
+        _isExplicitRecording.value = false
+        firstLiveTouchUptimeMs = 0L
+        pendingTouches.clear()
         flushPending()
         repository.endSession(session.id)
-    }
-
-    /** 화면에 그려진 점만 지운다. 저장된 데이터는 건드리지 않는다. */
-    fun clearLivePoints() {
-        _livePoints.value = emptyList()
+        clearLivePoints()
     }
 
     /**
-     * Activity 의 터치 디스패치에서 호출된다. **이벤트를 소비하지 않는다.**
+     * 기록 중인 세션을 통째로 버린다.
      *
-     * 이 함수는 UI 스레드에서 매 터치마다 도므로 할당과 작업량을 최소로 유지한다.
+     * 기록 중에는 점이 실시간으로 DB 에 들어가므로, "저장 안 함" 은 곧 삭제다.
+     * 대기열을 먼저 비우는 순서가 중요하다 — 안 그러면 삭제 뒤에 남은 점이
+     * 없어진 세션을 참조하며 되살아난다.
+     *
+     * 되돌릴 수 없다. 호출 전에 반드시 사용자 확인을 받는다.
      */
-    fun onMotionEvent(event: MotionEvent) {
+    suspend fun discardSession() {
         val session = _activeSession.value ?: return
+        _activeSession.value = null
+        _isExplicitRecording.value = false
+        firstLiveTouchUptimeMs = 0L
+        pendingTouches.clear()
+        flushPending()
+        repository.deleteSession(session.id)
+        clearLivePoints()
+    }
+
+    // 화면에 그려지는 점만 지움 (저장된 데이터는 건들이지 않음)
+    fun clearLivePoints() {
+        pendingTouches.clear()
+        _livePoints.value = emptyList()
+        // sequence 는 세션 안에서의 정렬 키다. 열린 세션이 있는데 0 으로 되돌리면
+        // 이미 저장된 점과 번호가 겹쳐 내보내기 순서가 뒤섞인다.
+        if (_activeSession.value == null) {
+            sequence = 0
+            firstLiveTouchUptimeMs = 0L
+        }
+    }
+
+    /** 기존 세션의 마지막 상태를 복원하고 이어서 기록을 재개 */
+    suspend fun resumeSession(sessionId: Long): Boolean {
+        stopSession()
+
+        val session = repository.getSession(sessionId) ?: return false
+        repository.reopenSession(sessionId)
+
+        val allPoints = repository.getPoints(sessionId)
+        val maxSeq = allPoints.maxOfOrNull { it.sequence } ?: -1
+        sequence = maxSeq + 1
+
+        val bufferSize = settings.liveBufferSize
+        val recentPoints = allPoints.takeLast(bufferSize)
+        _livePoints.value = recentPoints
+
+        sessionElapsedOffsetMs = allPoints.lastOrNull()?.elapsedMs ?: 0L
+        sessionStartUptimeMs = clock.uptimeMs()
+        firstLiveTouchUptimeMs = 0L
+        pendingTouches.clear()
+
+        _activeSession.value = session.copy(endedAtEpochMs = null)
+        // 이어서 기록하기는 사람이 고른 것이므로 명시적 녹화로 친다.
+        _isExplicitRecording.value = true
+        return true
+    }
+
+    fun onMotionEvent(event: MotionEvent) {
+        if (!isCaptureEnabled) {
+            pendingTouches.clear()
+            return
+        }
+
+        val bounds = captureBoundsInWindow
         val current = settings
 
         val samples = TouchEventMapper.map(event, ignoreSynthetic = current.ignoreSyntheticInput)
         if (samples.isEmpty()) return
 
+        val offsetX = bounds?.left ?: 0f
+        val offsetY = bounds?.top ?: 0f
+
+        // MOVE 이벤트를 전부 추적하는 모드인 경우 (원시 궤적 모드)
+        if (current.recordMoveEvents) {
+            recordContinuousSamples(samples, current, offsetX, offsetY)
+            return
+        }
+
+        // 단일 좌표 측정 모드: 슬라이드(드래그) 판정 적용
+        val slopPx = slideThresholdPx
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val index = event.actionIndex
+                val x = event.getX(index)
+                val y = event.getY(index)
+                if (bounds == null || bounds.contains(x, y)) {
+                    val pointerId = event.getPointerId(index)
+                    val rawSample = samples.firstOrNull { it.pointerId == pointerId }
+                    if (rawSample != null) {
+                        val canvasSample = rawSample.copy(
+                            xPx = rawSample.xPx - offsetX,
+                            yPx = rawSample.yPx - offsetY,
+                        )
+                        pendingTouches[pointerId] = PendingTouch(canvasSample)
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                for (i in 0 until event.pointerCount) {
+                    val pointerId = event.getPointerId(i)
+                    val pending = pendingTouches[pointerId] ?: continue
+                    val currentX = event.getX(i) - offsetX
+                    val currentY = event.getY(i) - offsetY
+                    val dx = currentX - pending.downSample.xPx
+                    val dy = currentY - pending.downSample.yPx
+                    val dist = hypot(dx, dy)
+                    if (dist > pending.maxDistancePx) {
+                        pending.maxDistancePx = dist
+                    }
+                    if (dist > slopPx) {
+                        // 기준 거리 이상 이동 시 슬라이드로 판정하여 기록 제외 플래그 설정
+                        pending.hasSlid = true
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                val index = event.actionIndex
+                val pointerId = event.getPointerId(index)
+                val pending = pendingTouches.remove(pointerId)
+                if (pending != null && !pending.hasSlid) {
+                    val currentX = event.getX(index) - offsetX
+                    val currentY = event.getY(index) - offsetY
+                    val dx = currentX - pending.downSample.xPx
+                    val dy = currentY - pending.downSample.yPx
+                    if (hypot(dx, dy) <= slopPx) {
+                        recordSinglePoint(pending.downSample, current)
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_UP -> {
+                val index = event.actionIndex
+                val pointerId = event.getPointerId(index)
+                val pending = pendingTouches.remove(pointerId)
+                if (pending != null && !pending.hasSlid) {
+                    val currentX = event.getX(index) - offsetX
+                    val currentY = event.getY(index) - offsetY
+                    val dx = currentX - pending.downSample.xPx
+                    val dy = currentY - pending.downSample.yPx
+                    if (hypot(dx, dy) <= slopPx) {
+                        recordSinglePoint(pending.downSample, current)
+                    }
+                }
+                pendingTouches.clear()
+            }
+
+            MotionEvent.ACTION_CANCEL -> {
+                // 부모 뷰(페이저, 스크롤 등)가 제스처를 가로챈 경우 터치 무효화
+                pendingTouches.clear()
+            }
+        }
+    }
+
+    /** 슬라이드가 아닌 유효한 단일 탭을 측정 점으로 등록 */
+    private fun recordSinglePoint(sample: TouchSample, current: CaptureSettings) {
+        val epochNow = clock.epochMs()
+        val uptimeNow = clock.uptimeMs()
+        val session = _activeSession.value
+        val referenceUptimeMs = if (session != null) {
+            sessionStartUptimeMs
+        } else {
+            if (firstLiveTouchUptimeMs == 0L || _livePoints.value.isEmpty()) {
+                firstLiveTouchUptimeMs = sample.eventTimeUptimeMs
+            }
+            firstLiveTouchUptimeMs
+        }
+
+        val baseElapsedMs = (sample.eventTimeUptimeMs - referenceUptimeMs).coerceAtLeast(0L)
+        val elapsedMs = if (session != null) baseElapsedMs + sessionElapsedOffsetMs else baseElapsedMs
+        val point = TouchPoint(
+            sessionId = session?.id ?: TouchSession.NO_ID,
+            sequence = sequence++,
+            pointerId = sample.pointerId,
+            phase = TouchPhase.DOWN,
+            xPx = sample.xPx,
+            yPx = sample.yPx,
+            pressure = sample.pressure,
+            touchMajorPx = sample.touchMajorPx,
+            touchMinorPx = sample.touchMinorPx,
+            orientationRad = sample.orientationRad,
+            elapsedMs = elapsedMs,
+            epochMs = epochNow - (uptimeNow - sample.eventTimeUptimeMs),
+        )
+
+        _livePoints.value = (_livePoints.value + point).takeLast(current.liveBufferSize)
+        // 세션이 열려 있든 아니든 똑같이 대기열로 보낸다. 세션이 없으면 저장 루프가
+        // 하나 만들어 붙인다 — 저장 경로가 하나뿐이라 경로마다 개수가 달라질 수 없다.
+        pending.trySend(PendingItem.Point(point))
+    }
+
+    /** recordMoveEvents 가 켜진 특수 모드용 연속 샘플 등록 */
+    private fun recordContinuousSamples(
+        samples: List<TouchSample>,
+        current: CaptureSettings,
+        offsetX: Float = 0f,
+        offsetY: Float = 0f,
+    ) {
         val epochNow = clock.epochMs()
         val uptimeNow = clock.uptimeMs()
         val accepted = ArrayList<TouchPoint>(samples.size)
+        val session = _activeSession.value
+        val referenceUptimeMs = if (session != null) {
+            sessionStartUptimeMs
+        } else {
+            if (firstLiveTouchUptimeMs == 0L || _livePoints.value.isEmpty()) {
+                firstLiveTouchUptimeMs = samples.first().eventTimeUptimeMs
+            }
+            firstLiveTouchUptimeMs
+        }
 
         for (sample in samples) {
-            if (!current.recordMoveEvents && sample.phase == TouchPhase.MOVE) continue
-
-            val elapsedMs = sample.eventTimeUptimeMs - sessionStartUptimeMs
+            val baseElapsedMs = (sample.eventTimeUptimeMs - referenceUptimeMs).coerceAtLeast(0L)
+            val elapsedMs = if (session != null) baseElapsedMs + sessionElapsedOffsetMs else baseElapsedMs
             accepted += TouchPoint(
-                sessionId = session.id,
+                sessionId = session?.id ?: TouchSession.NO_ID,
                 sequence = sequence++,
                 pointerId = sample.pointerId,
                 phase = sample.phase,
-                xPx = sample.xPx,
-                yPx = sample.yPx,
+                xPx = sample.xPx - offsetX,
+                yPx = sample.yPx - offsetY,
                 pressure = sample.pressure,
                 touchMajorPx = sample.touchMajorPx,
                 touchMinorPx = sample.touchMinorPx,
                 orientationRad = sample.orientationRad,
                 elapsedMs = elapsedMs,
-                // 샘플의 eventTime 은 단조 시계다. 절대 시각으로 되돌리려면
-                // "지금의 절대 시각 - 지금의 단조 시각" 만큼 평행이동시킨다.
                 epochMs = epochNow - (uptimeNow - sample.eventTimeUptimeMs),
             )
         }
@@ -162,7 +395,11 @@ class TouchCaptureController @Inject constructor(
 
         suspend fun commit() {
             if (batch.isEmpty()) return
-            repository.appendPoints(batch)
+            val sessionId = ensureSessionId()
+            // 세션이 없을 때 들어온 점은 sessionId 가 비어 있다. 여기서 채운다.
+            repository.appendPoints(
+                batch.map { if (it.sessionId == TouchSession.NO_ID) it.copy(sessionId = sessionId) else it },
+            )
             batch.clear()
         }
 
@@ -184,11 +421,32 @@ class TouchCaptureController @Inject constructor(
     }
 
     /**
-     * 대기열이 비워질 때까지 기다린다.
+     * 저장할 세션 id 를 돌려준다. 열린 세션이 없으면 여기서 만든다.
      *
-     * 채널에서 직접 꺼내 오지 않는 게 중요하다 — [drainPending] 이 이미 꺼내 갔지만
-     * 아직 저장 전인 점을 놓치기 때문이다. 대신 신호를 줄 맨 뒤에 세우고 처리되길 기다린다.
+     * 사용자가 실행 버튼을 누르지 않고 그냥 화면을 눌러도 측정이 남게 하는 지점이다.
+     * 저장 루프(단일 코루틴)에서만 불리므로 세션이 두 번 만들어질 수 없다.
      */
+    private suspend fun ensureSessionId(): Long {
+        _activeSession.value?.let { return it.id }
+
+        val device = sessionDeviceProfile
+        val name = autoSessionName()
+        val startedAt = clock.epochMs()
+        val id = repository.startSession(name, note = "", device = device)
+        _activeSession.value = TouchSession(
+            id = id,
+            name = name,
+            note = "",
+            startedAtEpochMs = startedAt,
+            device = device,
+        )
+        return id
+    }
+
+    private fun autoSessionName(): String =
+        java.text.SimpleDateFormat(SESSION_NAME_PATTERN, java.util.Locale.US)
+            .format(java.util.Date(clock.epochMs()))
+
     private suspend fun flushPending() {
         val ack = CompletableDeferred<Unit>()
         pending.send(PendingItem.Flush(ack))
@@ -197,5 +455,6 @@ class TouchCaptureController @Inject constructor(
 
     private companion object {
         const val MAX_BATCH_SIZE = 256
+        const val SESSION_NAME_PATTERN = "MM/dd HH:mm:ss"
     }
 }

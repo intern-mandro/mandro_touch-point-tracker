@@ -10,6 +10,11 @@ import com.mandro.touchtracker.model.TouchPoint
  */
 data class CaptureUiState(
     val isRecording: Boolean = false,
+    /**
+     * 녹화 버튼으로 시작한 세션인가. 그냥 화면을 눌러 자동으로 열린 세션은 false 다.
+     * 상단바가 "녹화 중" 표시등을 띄울지 초기화 버튼을 띄울지 가른다.
+     */
+    val isExplicitRecording: Boolean = false,
     val sessionName: String = "",
     val settings: CaptureSettings = CaptureSettings.DEFAULT,
     val metrics: ScreenMetrics = ScreenMetrics.PREVIEW,
@@ -20,6 +25,10 @@ data class CaptureUiState(
     /** 데이터 탭용 — **최신이 맨 위**. 화면 맨 위가 방금 찍힌 점이어야 눈이 덜 움직인다. */
     val recentPoints: List<TouchPoint>
         get() = livePoints.takeLast(CaptureSettings.RECENT_POINT_LIMIT).asReversed()
+
+    /** 모눈종이 탭용 — 화면에 표시할 최근 점 목록 (최대 9개 FIFO 큐). 오래된 것부터 최신 순. */
+    val recentLivePoints: List<TouchPoint>
+        get() = livePoints.takeLast(CaptureSettings.RECENT_POINT_LIMIT)
 
     val latestPoint: TouchPoint? get() = livePoints.lastOrNull()
 

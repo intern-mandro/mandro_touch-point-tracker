@@ -33,6 +33,21 @@ data class ScreenProjection(
     fun mmToCanvas(mm: Float): Float = metrics.toPxX(mm) * scale
 
     companion object {
+        /**
+         * 1:1 직접 매핑.
+         * 캔버스가 윈도우 내 (canvasOffsetInWindow)에 위치할 때,
+         * 윈도우 터치 좌표 (xPx, yPx)를 캔버스 로컬 좌표로 1:1 변환하여
+         * 손가락이 닿은 바로 그 자리에 정확히 그려지도록 한다.
+         */
+        fun direct(metrics: ScreenMetrics, canvasOffsetInWindow: Offset = Offset.Zero): ScreenProjection {
+            return ScreenProjection(
+                metrics = metrics,
+                scale = 1f,
+                originX = -canvasOffsetInWindow.x,
+                originY = -canvasOffsetInWindow.y,
+            )
+        }
+
         fun fit(metrics: ScreenMetrics, canvasSize: Size): ScreenProjection {
             val scale = minOf(
                 canvasSize.width / metrics.widthPx,

@@ -16,13 +16,19 @@ import androidx.compose.ui.graphics.Color
  *  - [LiveGreen]  : 기록 중 상태
  */
 
-// ── 라이트: 제도 용지 ─────────────────────────────────────────
-val PaperCream = Color(0xFFF7F3EA)
-val PaperCard = Color(0xFFFFFDF8)
+// ── 라이트: 클린 화이트 ───────────────────────────────────────
+val PureWhite = Color(0xFFFFFFFF)
+val PaperCream = PureWhite
+val PaperCard = PureWhite
 val InkBlue = Color(0xFF16212B)
 val InkBlueSoft = Color(0xFF4A5C6B)
-val GridLine = Color(0xFF9FB4C4)
-val GridLineMajor = Color(0xFF5C7C93)
+val GridLine = Color(0xFFE4E9F0)
+val GridLineMajor = Color(0xFFBAC8D5)
+
+/** 스낵바·다이얼로그·토널 버튼처럼 "한 단계 눌린 면"에 쓰는 중성 회색. 보라 기운 없음. */
+val SurfaceMuted = Color(0xFFF2F4F7)
+val SurfaceDim = Color(0xFFE8EBF0)
+val ErrorSurface = Color(0xFFFCE8E6)
 
 // ── 다크: 청사진 ──────────────────────────────────────────────
 val BlueprintNavy = Color(0xFF0E1620)
@@ -31,9 +37,49 @@ val BlueprintInk = Color(0xFFE3EAF0)
 val BlueprintInkSoft = Color(0xFF93A6B5)
 val GridLineDark = Color(0xFF2B3E50)
 val GridLineMajorDark = Color(0xFF41627C)
+val BlueprintMuted = Color(0xFF1E2A38)
+val BlueprintDim = Color(0xFF0A1219)
+val ErrorSurfaceDark = Color(0xFF3A1A16)
 
 // ── 의미색 (양쪽 테마 공통) ───────────────────────────────────
 val MarkerRed = Color(0xFFE8452C)
 val TraceAmber = Color(0xFFD98A1F)
 val LiveGreen = Color(0xFF1F9D55)
 val AlertRed = Color(0xFFC0392B)
+
+// ── 9색 터치 마커 팔레트 (빨, 주, 노, 연두, 초록, 하늘, 파랑, 남색, 보라) ───────────
+val MarkerPalette = listOf(
+    Color(0xFFE53935), // 1. 빨강 (Red)
+    Color(0xFFFF6D00), // 2. 주황 (Orange)
+    Color(0xFFF9A825), // 3. 노랑 (Yellow)
+    Color(0xFF7CB342), // 4. 연두 (Light Green)
+    Color(0xFF1E8E3E), // 5. 초록 (Green)
+    Color(0xFF00B4D8), // 6. 하늘 (Vivid Cyan Sky)
+    Color(0xFF1D4ED8), // 7. 파랑 (Royal Blue)
+    Color(0xFF283593), // 8. 남색 (Navy)
+    Color(0xFF8E24AA), // 9. 보라 (Purple)
+)
+
+// ── 9색 터치 마커 테두리 팔레트 (아이콘 스타일: 같은 계열의 연한 색) ─────────
+val MarkerRimPalette = listOf(
+    Color(0xFFFFCDD2), // 1. 빨강 연한 테두리
+    Color(0xFFFFE0B2), // 2. 주황 연한 테두리
+    Color(0xFFFFF9C4), // 3. 노랑 연한 테두리
+    Color(0xFFDCEDC8), // 4. 연두 연한 테두리
+    Color(0xFFC8E6C9), // 5. 초록 연한 테두리
+    Color(0xFFE0F7FA), // 6. 하늘 연한 테두리
+    Color(0xFFDBEAFE), // 7. 파랑 연한 테두리
+    Color(0xFFC5CAE9), // 8. 남색 연한 테두리
+    Color(0xFFE1BEE7), // 9. 보라 연한 테두리
+)
+
+fun getMarkerColor(sequence: Int): Color {
+    val index = (sequence % MarkerPalette.size + MarkerPalette.size) % MarkerPalette.size
+    return MarkerPalette[index]
+}
+
+fun getMarkerRimColor(sequence: Int): Color {
+    val index = (sequence % MarkerRimPalette.size + MarkerRimPalette.size) % MarkerRimPalette.size
+    return MarkerRimPalette[index]
+}
+

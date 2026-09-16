@@ -50,6 +50,9 @@ interface SessionDao {
     @Query("UPDATE sessions SET ended_at = :endedAtEpochMs WHERE id = :sessionId AND ended_at IS NULL")
     suspend fun markEnded(sessionId: Long, endedAtEpochMs: Long)
 
+    @Query("UPDATE sessions SET ended_at = NULL WHERE id = :sessionId")
+    suspend fun reopen(sessionId: Long)
+
     @Query("UPDATE sessions SET name = :name, note = :note WHERE id = :sessionId")
     suspend fun rename(sessionId: Long, name: String, note: String)
 

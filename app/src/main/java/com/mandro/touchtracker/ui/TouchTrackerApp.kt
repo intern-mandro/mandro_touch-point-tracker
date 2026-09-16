@@ -32,7 +32,6 @@ fun TouchTrackerApp(
             CaptureScreen(
                 deviceProfile = deviceProfile,
                 onOpenSessions = { navController.navigate(Screen.Sessions.route) },
-                onOpenSettings = { navController.navigate(Screen.Settings.route) },
             )
         }
 
@@ -54,7 +53,12 @@ fun TouchTrackerApp(
                 },
             ),
         ) {
-            SessionDetailScreen(onBack = navController::popBackStack)
+            SessionDetailScreen(
+                onBack = navController::popBackStack,
+                onResumeSession = {
+                    navController.popBackStack(Screen.Capture.route, inclusive = false)
+                },
+            )
         }
 
         composable(Screen.Settings.route) {

@@ -9,19 +9,10 @@ import com.mandro.touchtracker.model.DeviceProfile
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * 지금 이 기기·화면의 좌표계를 읽는다. 세션을 열 때 한 번 호출된다.
- *
- * ApplicationContext 가 아니라 **Activity Context** 를 넘겨야 실제 창 크기가 나온다.
- * ApplicationContext 로 얻은 DisplayMetrics 는 시스템 바를 포함한 값이라
- * 터치 좌표 원점과 어긋난다.
- */
 @Singleton
 class DeviceProfileProvider @Inject constructor() {
 
-    /**
-     * @param activityContext 캡처 화면을 띄운 Activity. 여기서 창 크기를 읽는다.
-     */
+    // 창 크기 읽기
     fun current(activityContext: Context): DeviceProfile = DeviceProfile(
         model = Build.MODEL,
         manufacturer = Build.MANUFACTURER,

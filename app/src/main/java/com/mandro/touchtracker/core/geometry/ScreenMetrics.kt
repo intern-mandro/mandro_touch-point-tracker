@@ -1,18 +1,4 @@
 package com.mandro.touchtracker.core.geometry
-
-/**
- * 한 세션이 측정된 화면의 좌표계.
- *
- * px 값은 기기·해상도가 바뀌면 그대로 비교할 수 없다. 그래서 세션마다 이 값을 통째로
- * 박제해 두고, 내보낸 데이터에도 같이 실어 보낸다. 나중에 다른 기기에서 뽑은 데이터와
- * 비교할 때는 px 가 아니라 [toMmX] / [toMmY] 로 환산한 mm 를 쓴다.
- *
- * @param widthPx  캡처 영역 가로 (px)
- * @param heightPx 캡처 영역 세로 (px)
- * @param xDpi     가로 방향 실제 물리 DPI (DisplayMetrics.xdpi)
- * @param yDpi     세로 방향 실제 물리 DPI (DisplayMetrics.ydpi)
- * @param density  논리 밀도 (dp 환산용). 물리 치수 계산에는 쓰지 않는다.
- */
 data class ScreenMetrics(
     val widthPx: Int,
     val heightPx: Int,

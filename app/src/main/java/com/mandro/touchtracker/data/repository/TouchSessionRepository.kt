@@ -25,6 +25,12 @@ interface TouchSessionRepository {
     /** 종료 시각을 찍는다. 이미 닫힌 세션에 다시 불러도 안전해야 한다. */
     suspend fun endSession(sessionId: Long)
 
+    /** 종료된 세션을 다시 열어 기록을 재개한다. */
+    suspend fun reopenSession(sessionId: Long)
+
+    /** 세션에 기록된 모든 터치 포인트를 sequence 오름차순으로 조회한다. */
+    suspend fun getPoints(sessionId: Long): List<TouchPoint>
+
     /**
      * 점을 묶음으로 저장한다. MOVE 는 초당 수백 개가 들어오므로 한 건씩 넣지 않는다.
      * 호출자가 [TouchPoint.sequence] 의 연속성을 보장한다.
